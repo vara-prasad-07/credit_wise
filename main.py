@@ -15,7 +15,7 @@ class PredictionResponse(BaseModel):
 
 def load_model():
     model = xgb.XGBRegressor()
-    model.load_model("synthetic_financial_data.csv")
+    model.load_model("credit_model.json")
     print("Model loaded successfully")
     return model
 
