@@ -4,50 +4,66 @@ import yfinance as yf
 import requests
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import shap
-
+import time
+import os
+from dotenv import load_dotenv
+load_dotenv()
 class predict:
     def __init__(self,model):
         self.analyzer = SentimentIntensityAnalyzer()
-        self.NEWS_API_KEY="9b052ed37eea4cec8641caa87d48f853"
+        self.NEWS_API_KEY=os.environ.get('NEWS_API_KEY')
         self.model = model
         self.explainer = shap.Explainer(model)
         
-    def get_news_sentiment(self,company):
+    def get_news_sentiment(self, company):
+        company_clean = company.replace(".", "")
         queries = [
-            f"{company} stock",
-            f"{company} earnings",
-            f"{company} revenue",
-            f"{company} profit",
-            f"{company} loss",
-            f"{company} rating"
+            f"{company_clean} stock",
+            f"{company_clean} earnings",
+            f"{company_clean} revenue",
+            f"{company_clean} profit",
+            f"{company_clean} loss",
+            f"{company_clean} rating"
         ]
 
         sentiments = []
-        for q in queries:
+        for i, q in enumerate(queries):
             try:
-                url = "https://newsapi.org/v2/everything"
+                # Add delay between requests
+                if i > 0:
+                    time.sleep(1)
+                    
+                # Use /latest endpoint instead of /news
+                url = "https://newsdata.io/api/1/latest"
                 params = {
+                    "apikey": self.NEWS_API_KEY,
                     "q": q,
-                    "sortBy": "publishedAt",
-                    "language": "en",
-                    "pageSize": 5,
-                    "apiKey": self.NEWS_API_KEY
+                    "language": "en"
+                    # Remove page parameter - not needed for initial request
                 }
+                
+                print(f"Requesting: {q}")
                 r = requests.get(url, params=params, timeout=10)
+                
+                print(f"Status: {r.status_code}")
+                if r.status_code != 200:
+                    print(f"Response: {r.text[:200]}")
+                    
                 r.raise_for_status()
                 data = r.json()
-                
-                for article in data.get("articles", []):
-                    text = article["title"] + ". " + (article.get("description") or "")
+
+                for article in data.get("results", []):
+                    text = article.get("title", "") + ". " + (article.get("description") or "")
                     if any(k in text.lower() for k in ["stock", "revenue", "profit", "loss", "earnings"]):
                         s = self.analyzer.polarity_scores(text)["compound"]
                         print(f"News sentiment for '{text}': {s}")
                         sentiments.append(s)
-                        
+
             except Exception as e:
-                print("News fetch error:", e)
+                print(f"News fetch error for '{q}': {e}")
 
         return np.mean(sentiments) if sentiments else 0
+
     
     def get_financial_data(self,ticker):
         tkr = yf.Ticker(ticker)

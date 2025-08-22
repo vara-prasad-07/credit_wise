@@ -8,3 +8,4 @@ requests
 vadersentiment
 shap
 pydantic
+python-dotenv
